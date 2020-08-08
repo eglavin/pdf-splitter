@@ -8,6 +8,10 @@
 # https://pythonhosted.org/PyPDF2/PageObject.html
 # https://github.com/mstamy2/PyPDF2
 # https://stackoverflow.com/questions/457207/cropping-pages-of-a-pdf-file
+# https://www.adobe.com/content/dam/acom/en/devnet/acrobat/pdfs/PDF32000_2008.pdf
+# https://www.manejandodatos.es/2014/11/ocr-python-easy/
+# https://yasoob.me/2016/02/25/ocr-on-pdf-files-using-python/
+# https://hub.docker.com/r/clearlinux/tesseract-ocr
 
 from system import clearScreen, welcome
 from PyPDF2 import PdfFileWriter, PdfFileReader
