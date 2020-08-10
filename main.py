@@ -13,15 +13,16 @@
 # https://yasoob.me/2016/02/25/ocr-on-pdf-files-using-python/
 # https://hub.docker.com/r/clearlinux/tesseract-ocr
 
+from os import mkdir, path
+from glob import glob
 from system import clearScreen, welcome
 from PyPDF2 import PdfFileWriter, PdfFileReader
-import glob
-import os
 
 clearScreen()
 welcome()
 
 # Outputs single PDF page
+
 
 def printFile(ouput_page, file_name):
     output_data = PdfFileWriter()
@@ -58,8 +59,8 @@ def splitPages(input_file_name):
         output_number = 0
 
         # Create Output dir if not already created
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        if not path.exists(output_dir):
+            mkdir(output_dir)
 
         # Loop through pages and Split Wage slips into separate files
         try:
@@ -72,7 +73,7 @@ def splitPages(input_file_name):
                 top_page.cropBox.lowerLeft = (0, 420)
                 top_page.cropBox.upperRight = (575, 750)
 
-                output_file_name = f'{output_dir}{output_prefix} {output_number}.pdf'
+                output_file_name = f'{output_dir}{output_prefix}{output_number}.pdf'
                 printFile(top_page, output_file_name)
 
                 # Cut Bottom Section of page
@@ -83,7 +84,7 @@ def splitPages(input_file_name):
                 bottom_page.cropBox.lowerLeft = (0, 0)
                 bottom_page.cropBox.upperRight = (575, 330)
 
-                output2_file_name = f'{output_dir}{output_prefix} {output_number}.pdf'
+                output2_file_name = f'{output_dir}{output_prefix}{output_number}.pdf'
                 printFile(bottom_page, output2_file_name)
         except:
             return print("An error Occurred while splitting files.")
@@ -107,11 +108,12 @@ def confirmChoice():
 
 # Main Function to read file data and export new file to root directory.
 
+
 def main():
 
     # Gets the newest pdf file to be split.
-    list_of_pdf_files = glob.glob('./*.pdf')
-    latest_file = max(list_of_pdf_files, key=os.path.getctime)
+    list_of_pdf_files = glob('./*.pdf')
+    latest_file = max(list_of_pdf_files, key=path.getctime)
     print(f'File to be Split: {latest_file}')
 
     confirmChoice()
