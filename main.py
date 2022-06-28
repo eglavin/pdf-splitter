@@ -1,124 +1,147 @@
 #!/usr/bin/python
 #
-# Script to open PDF file,
-# Read PDF file,
-# Find Employees based on given array of employee names,
-# Septate Each Employee into their own file.
-#
-# https://pythonhosted.org/PyPDF2/PageObject.html
+# References:
+# https://pypdf2.readthedocs.io
 # https://github.com/mstamy2/PyPDF2
-# https://stackoverflow.com/questions/457207/cropping-pages-of-a-pdf-file
-# https://www.adobe.com/content/dam/acom/en/devnet/acrobat/pdfs/PDF32000_2008.pdf
-# https://www.manejandodatos.es/2014/11/ocr-python-easy/
-# https://yasoob.me/2016/02/25/ocr-on-pdf-files-using-python/
-# https://hub.docker.com/r/clearlinux/tesseract-ocr
 
-from os import mkdir, path
+from os import path
 from glob import glob
-from system import clearScreen, welcome
+from typing import Any, List, Tuple
+from utilities import check_pdf_encryption, clear_output_directory, clear_screen, create_dir_if_not_exists, get_file_name_from_path, welcome_screen, confirm_choice
 from PyPDF2 import PdfFileWriter, PdfFileReader
 
-clearScreen()
-welcome()
-
-# Outputs single PDF page
-
-
-def printFile(ouput_page, file_name):
-    output_data = PdfFileWriter()
-    output_data.addPage(ouput_page)
-
-    # output_data.addMetadata({'/Registered to': "test"})
-
-    with open(file_name, "wb") as out_f:
-        output_data.write(out_f)
-
-    return
+# Global Variables
+#
+INPUT_DIR = './input'
+OUTPUT_DIR = './output'
+REGIONS_TO_SPLIT = [
+    [(0, 420), (575, 750)],
+    [(0, 0), (575, 330)],
+]
 
 
-# Function used to split wage slips into their own files
+def save_page(page: Any, output_file_name: str) -> None:
+    """
+    Function to save PDF out to the given file name.
+    """
 
-def splitPages(input_file_name):
+    output_writer = PdfFileWriter()
+    output_writer.addPage(page)
+
+    print(f"Saving File: {output_file_name}")
+    try:
+        with open(output_file_name, "wb") as out_file:
+            output_writer.write(out_file)
+    except:
+        exit(1)
+
+
+def extract_region(page: Any, output_file_name: str, region: List[Tuple]) -> None:
+    """
+    Function to extract a region from a page.
+    """
+
+    try:
+        page.trimBox.lowerLeft = region[0]
+        page.trimBox.upperRight = region[1]
+
+        page.cropBox.lowerLeft = region[0]
+        page.cropBox.upperRight = region[1]
+    except:
+        print(f"Error Extracting Region from: {output_file_name}")
+        exit(1)
+
+    save_page(page, output_file_name)
+
+
+def split_pdf(input_file_name: str) -> str | int:
+    """
+    Function to open the given PDF file and then split into individual pages.
+    """
+
     with open(input_file_name, "rb") as input_file:
         pdf = PdfFileReader(input_file)
 
-        if pdf.isEncrypted:
-            try:
-                pdf.decrypt('')
-            except:
-                print("Error Decrypting File.")
-                exit()
+        if (check_pdf_encryption(pdf, input_file_name)):
+            return "Encrypted PDF File, Unable To Open."
 
-        numOfPDFPages = pdf.getNumPages()
+        count_pdf_pages = pdf.getNumPages()
+        if (count_pdf_pages == 0):
+            return "PDF File Has No Pages."
 
-        # Print PDF Info
-        print(f'{numOfPDFPages} pages to be split.')
+        if (create_dir_if_not_exists(f'{OUTPUT_DIR}/') == False):
+            return "Error Creating Output Directory."
 
-        output_dir = './Split-Files/'
-        output_prefix = "Wage Slip - "
-        output_number = 0
-
-        # Create Output dir if not already created
-        if not path.exists(output_dir):
-            mkdir(output_dir)
-
-        # Loop through pages and Split Wage slips into separate files
+        print(
+            f'\n{count_pdf_pages} pages to be split into {len(REGIONS_TO_SPLIT)} regions.')
         try:
-            for i in range(numOfPDFPages):
-                # Cut Top Section of page
-                output_number += 1
-                top_page = pdf.getPage(i)
-                top_page.trimBox.lowerLeft = (0, 420)
-                top_page.trimBox.upperRight = (575, 750)
-                top_page.cropBox.lowerLeft = (0, 420)
-                top_page.cropBox.upperRight = (575, 750)
+            file_name = get_file_name_from_path(input_file_name)
+            region_count = 0
 
-                output_file_name = f'{output_dir}{output_prefix}{output_number}.pdf'
-                printFile(top_page, output_file_name)
+            for page_number in range(count_pdf_pages):
+                page = pdf.getPage(page_number)
 
-                # Cut Bottom Section of page
-                output_number += 1
-                bottom_page = pdf.getPage(i)
-                bottom_page.trimBox.lowerLeft = (0, 0)
-                bottom_page.trimBox.upperRight = (575, 330)
-                bottom_page.cropBox.lowerLeft = (0, 0)
-                bottom_page.cropBox.upperRight = (575, 330)
+                for region in REGIONS_TO_SPLIT:
+                    region_count += 1
 
-                output2_file_name = f'{output_dir}{output_prefix}{output_number}.pdf'
-                printFile(bottom_page, output2_file_name)
+                    extract_region(
+                        page,
+                        f'{OUTPUT_DIR}/{file_name} - {region_count}.pdf',
+                        region)
+
         except:
-            return print("An error Occurred while splitting files.")
-            exit()
+            return "An Error Occurred While Splitting Files."
 
-    return print("Wage Splitting Completed.")
-
-
-def confirmChoice():
-
-    confirm_input = input("[c]Confirm or [e]Exit: ")
-
-    if confirm_input != 'c' and confirm_input != 'e':
-        print("\n Invalid Option. Please Enter a Valid Option.")
-        return confirmChoice()
-
-    if confirm_input == 'e':
-        exit()
-
-    return confirm_input
-
-# Main Function to read file data and export new file to root directory.
+    return 0
 
 
-def main():
+def get_file_to_split() -> str | bool:
+    """
+    Function to get latest file in the input directory.
+    """
 
-    # Gets the newest pdf file to be split.
-    list_of_pdf_files = glob('./*.pdf')
-    latest_file = max(list_of_pdf_files, key=path.getctime)
-    print(f'File to be Split: {latest_file}')
+    try:
+        # Get all files in the input directory.
+        list_of_pdf_files = glob(f'{INPUT_DIR}/*.pdf')
 
-    confirmChoice()
+        # Get the latest PDF file.
+        latest_file = max(list_of_pdf_files, key=path.getmtime)
 
-    splitPages(latest_file)
+        # Confirm with user if they want to split the found file.
+        print('Is this the file you want to split: ')
+        print(f'\t{latest_file}')
+
+        if (confirm_choice()):
+            return latest_file
+    except:
+        print("No File Found.")
+
+    return False
 
 
-main()
+def main() -> int:
+    """
+    Main function to initialise PDF Splitting.
+    """
+
+    clear_screen()
+    welcome_screen()
+
+    file_to_split = get_file_to_split()
+    if (file_to_split == False):
+        exit(1)
+
+    if (clear_output_directory(OUTPUT_DIR) == False):
+        exit(1)
+
+    output = split_pdf(file_to_split)
+    if (output != 0):
+        print(output)
+        exit(1)
+
+    print("\nSplitting Complete.")
+    exit(0)
+
+
+if (__name__ == '__main__'):
+    main()
