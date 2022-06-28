@@ -6,27 +6,27 @@
 
 from os import path
 from glob import glob
-from typing import Any, List, Tuple
+from typing import List, Tuple
 from utilities import check_pdf_encryption, clear_output_directory, clear_screen, create_dir_if_not_exists, get_file_name_from_path, welcome_screen, confirm_choice
-from PyPDF2 import PdfFileWriter, PdfFileReader
+from PyPDF2 import PdfWriter, PdfReader, PageObject
 
 # Global Variables
 #
 INPUT_DIR = './input'
 OUTPUT_DIR = './output'
-REGIONS_TO_SPLIT = [
+REGIONS_TO_SPLIT: List[List[Tuple[float, float]]] = [
     [(0, 420), (575, 750)],
     [(0, 0), (575, 330)],
 ]
 
 
-def save_page(page: Any, output_file_name: str) -> None:
+def save_page(page: PageObject, output_file_name: str) -> None:
     """
     Function to save PDF out to the given file name.
     """
 
-    output_writer = PdfFileWriter()
-    output_writer.addPage(page)
+    output_writer = PdfWriter()
+    output_writer.add_page(page)
 
     print(f"Saving File: {output_file_name}")
     try:
@@ -36,17 +36,17 @@ def save_page(page: Any, output_file_name: str) -> None:
         exit(1)
 
 
-def extract_region(page: Any, output_file_name: str, region: List[Tuple]) -> None:
+def extract_region(page: PageObject, output_file_name: str, region: List[Tuple[float, float]]) -> None:
     """
     Function to extract a region from a page.
     """
 
     try:
-        page.trimBox.lowerLeft = region[0]
-        page.trimBox.upperRight = region[1]
+        page.trimbox.lower_left = region[0]
+        page.trimbox.upper_right = region[1]
 
-        page.cropBox.lowerLeft = region[0]
-        page.cropBox.upperRight = region[1]
+        page.cropbox.lower_left = region[0]
+        page.cropbox.upper_right = region[1]
     except:
         print(f"Error Extracting Region from: {output_file_name}")
         exit(1)
@@ -60,12 +60,12 @@ def split_pdf(input_file_name: str) -> str | int:
     """
 
     with open(input_file_name, "rb") as input_file:
-        pdf = PdfFileReader(input_file)
+        pdf = PdfReader(input_file)
 
-        if (check_pdf_encryption(pdf, input_file_name)):
+        if (check_pdf_encryption(pdf)):
             return "Encrypted PDF File, Unable To Open."
 
-        count_pdf_pages = pdf.getNumPages()
+        count_pdf_pages = len(pdf.pages)
         if (count_pdf_pages == 0):
             return "PDF File Has No Pages."
 
@@ -79,7 +79,7 @@ def split_pdf(input_file_name: str) -> str | int:
             region_count = 0
 
             for page_number in range(count_pdf_pages):
-                page = pdf.getPage(page_number)
+                page = pdf.pages[page_number]
 
                 for region in REGIONS_TO_SPLIT:
                     region_count += 1

@@ -4,7 +4,7 @@
 from glob import glob
 from os import mkdir, path, remove, system, name
 from pathlib import Path
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfReader
 from datetime import datetime
 
 
@@ -77,12 +77,12 @@ def clear_output_directory(output_directory) -> bool | None:
             return False
 
 
-def check_pdf_encryption(pdf: PdfFileReader, input_file_name: str) -> bool:
+def check_pdf_encryption(pdf: PdfReader) -> bool:
     """
     Check if the PDF file is encrypted.
     """
 
-    if (pdf.isEncrypted):
+    if (pdf.is_encrypted):
         try:
             if (pdf.decrypt('') == 0):
                 raise Exception('Error Decrypting PDF File.')
