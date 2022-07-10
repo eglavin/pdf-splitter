@@ -4,119 +4,34 @@
 # https://pypdf2.readthedocs.io
 # https://github.com/mstamy2/PyPDF2
 
-from os import path
-from glob import glob
 from typing import List, Tuple
-from utilities import check_pdf_encryption, clear_output_directory, clear_screen, create_dir_if_not_exists, get_file_name_from_path, welcome_screen, confirm_choice
-from PyPDF2 import PdfWriter, PdfReader, PageObject
+
+from utilities import check_pre_reqs, clear_directory, clear_screen, get_file_to_split, ghost_export, split_pdf, welcome_screen
 
 # Global Variables
 #
+
 INPUT_DIR = './input'
+TEMP_DIR = './temp'
 OUTPUT_DIR = './output'
-REGIONS_TO_SPLIT: List[List[Tuple[float, float]]] = [
-    [(0, 420), (575, 750)],
-    [(0, 0), (575, 330)],
+
+"""
+Each tuple is a pair of coordinates in this format:
+[
+  (lower_left_x, lower_left_y),
+  (upper_right_x, upper_right_y)
 ]
-
-
-def save_page(page: PageObject, output_file_name: str) -> None:
-    """
-    Function to save PDF out to the given file name.
-    """
-
-    output_writer = PdfWriter()
-    output_writer.add_page(page)
-
-    print(f"Saving File: {output_file_name}")
-    try:
-        with open(output_file_name, "wb") as out_file:
-            output_writer.write(out_file)
-    except:
-        exit(1)
-
-
-def extract_region(page: PageObject, output_file_name: str, region: List[Tuple[float, float]]) -> None:
-    """
-    Function to extract a region from a page.
-    """
-
-    try:
-        page.trimbox.lower_left = region[0]
-        page.trimbox.upper_right = region[1]
-
-        page.cropbox.lower_left = region[0]
-        page.cropbox.upper_right = region[1]
-    except:
-        print(f"Error Extracting Region from: {output_file_name}")
-        exit(1)
-
-    save_page(page, output_file_name)
-
-
-def split_pdf(input_file_name: str) -> str | int:
-    """
-    Function to open the given PDF file and then split into individual pages.
-    """
-
-    with open(input_file_name, "rb") as input_file:
-        pdf = PdfReader(input_file)
-
-        if (check_pdf_encryption(pdf)):
-            return "Encrypted PDF File, Unable To Open."
-
-        count_pdf_pages = len(pdf.pages)
-        if (count_pdf_pages == 0):
-            return "PDF File Has No Pages."
-
-        if (create_dir_if_not_exists(f'{OUTPUT_DIR}/') == False):
-            return "Error Creating Output Directory."
-
-        print(
-            f'\n{count_pdf_pages} pages to be split into {len(REGIONS_TO_SPLIT)} regions.')
-        try:
-            file_name = get_file_name_from_path(input_file_name)
-            region_count = 0
-
-            for page_number in range(count_pdf_pages):
-                page = pdf.pages[page_number]
-
-                for region in REGIONS_TO_SPLIT:
-                    region_count += 1
-
-                    extract_region(
-                        page,
-                        f'{OUTPUT_DIR}/{file_name} - {region_count}.pdf',
-                        region)
-
-        except:
-            return "An Error Occurred While Splitting Files."
-
-    return 0
-
-
-def get_file_to_split() -> str | bool:
-    """
-    Function to get latest file in the input directory.
-    """
-
-    try:
-        # Get all files in the input directory.
-        list_of_pdf_files = glob(f'{INPUT_DIR}/*.pdf')
-
-        # Get the latest PDF file.
-        latest_file = max(list_of_pdf_files, key=path.getmtime)
-
-        # Confirm with user if they want to split the found file.
-        print('Is this the file you want to split: ')
-        print(f'\t{latest_file}')
-
-        if (confirm_choice()):
-            return latest_file
-    except:
-        print("No File Found.")
-
-    return False
+"""
+REGIONS_TO_SPLIT: List[List[Tuple[float, float]]] = [
+    [
+        (0, 420),
+        (575, 750)
+    ],
+    [
+        (0, 0),
+        (575, 330)
+    ],
+]
 
 
 def main() -> int:
@@ -126,17 +41,24 @@ def main() -> int:
 
     clear_screen()
     welcome_screen()
+    if (check_pre_reqs() == False):
+        exit(1)
 
-    file_to_split = get_file_to_split()
+    file_to_split = get_file_to_split(INPUT_DIR)
     if (file_to_split == False):
         exit(1)
 
-    if (clear_output_directory(OUTPUT_DIR) == False):
+    if (clear_directory(TEMP_DIR) == False):
         exit(1)
 
-    output = split_pdf(file_to_split)
-    if (output != 0):
-        print(output)
+    split_response = split_pdf(file_to_split, REGIONS_TO_SPLIT, TEMP_DIR)
+    if (split_response != 0):
+        print(split_response)
+        exit(1)
+
+    ghost_export_response = ghost_export(TEMP_DIR, OUTPUT_DIR)
+    if (ghost_export_response):
+        print(ghost_export_response)
         exit(1)
 
     print("\nSplitting Complete.")
