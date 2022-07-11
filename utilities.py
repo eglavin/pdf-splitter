@@ -240,6 +240,9 @@ def ghost_export(temp_directory: str, output_directory: str, skip_confirmation: 
     given output directory.
     """
 
+    if (create_directory(f'{output_directory}/') == False):
+        return "Error Creating Output Directory."
+
     if (clear_directory(output_directory, skip_confirmation, show_progress) == False):
         return "Error Clearing Output Directory."
 
