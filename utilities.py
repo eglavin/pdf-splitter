@@ -2,6 +2,7 @@
 #
 
 from glob import glob
+from sys import argv
 from os import mkdir, path, remove, system, name
 from pathlib import Path
 from shutil import which
@@ -36,10 +37,23 @@ def check_pre_reqs() -> None | bool:
     Function to check if the pre-requisites are met.
     """
 
-    has_ghostscript = which('gs')
+    has_ghostscript: str
+    if (name == 'nt'):
+        has_ghostscript = which('gswin64c')
+    else:
+        has_ghostscript = which('gs')
+
     if (not has_ghostscript):
         print("Ghostscript not found. Please install Ghostscript.")
         return False
+
+
+def has_arg(arg: str) -> bool:
+    """
+    Function to check if the given argument is present.
+    """
+
+    return arg in argv
 
 
 def confirm_choice() -> bool:
@@ -71,28 +85,6 @@ def create_directory(dir: str) -> bool:
         return False
 
 
-def clear_directory(dir: str, file_type: str = 'pdf') -> bool | None:
-    """
-    Function to clear a directory contents of the given type of files.
-    """
-
-    files = glob(f'{dir}/*.{file_type}')
-    if (len(files) > 0):
-        print(
-            f"\n{len(files)} files found in {dir} directory would you like to delete them?")
-
-        if (confirm_choice()):
-            try:
-                for file in files:
-                    print(f'Removing: {file}')
-                    remove(file)
-            except:
-                print("Error Clearing Directory.")
-                return False
-        else:
-            return False
-
-
 def get_file_name_from_path(input_path: str) -> str:
     """
     Get the file name from the input file path.
@@ -101,7 +93,31 @@ def get_file_name_from_path(input_path: str) -> str:
     return Path(input_path).stem
 
 
-def get_file_to_split(input_directory: str) -> str | bool:
+def clear_directory(dir: str, skip_confirmation: bool, show_progress: bool, file_type: str = 'pdf') -> bool | None:
+    """
+    Function to clear a directory contents of the given type of files.
+    """
+
+    files = glob(f'{dir}/*.{file_type}')
+    if (len(files) > 0):
+        print(
+            f"\n{len(files)} files found in {dir} directory, deleting now.") if skip_confirmation else print(f"\n{len(files)} files found in {dir} directory would you like to delete them?")
+
+        if (skip_confirmation or confirm_choice()):
+            try:
+                for file in files:
+                    if show_progress:
+                        print(
+                            f'Removing: {dir}/{get_file_name_from_path(file)}.{file_type}')
+                    remove(file)
+            except:
+                print("Error Clearing Directory.")
+                return False
+        else:
+            return False
+
+
+def get_file_to_split(input_directory: str, skip_confirmation: bool) -> str | bool:
     """
     Function to get latest pdf file in the given directory.
     """
@@ -114,10 +130,11 @@ def get_file_to_split(input_directory: str) -> str | bool:
         latest_file = max(list_of_pdf_files, key=path.getmtime)
 
         # Confirm with user if they want to split the found file.
-        print('Is this the file you want to split: ')
-        print(f'\t{latest_file}')
+        print('Found file: ') if skip_confirmation else print(
+            'Is this the file you want to split: ')
+        print(f'\t{input_directory}/{get_file_name_from_path(latest_file)}')
 
-        if (confirm_choice()):
+        if (skip_confirmation or confirm_choice()):
             return latest_file
     except:
         print("No File Found.")
@@ -140,7 +157,7 @@ def check_pdf_encryption(pdf: PdfReader) -> bool:
     return False
 
 
-def save_page(page: PageObject, output_file_name: str) -> None:
+def save_page(page: PageObject, output_file_name: str, show_progress: bool) -> None:
     """
     Function to save PDF to the given file name.
     """
@@ -148,7 +165,8 @@ def save_page(page: PageObject, output_file_name: str) -> None:
     output_writer = PdfWriter()
     output_writer.add_page(page)
 
-    print(f"Saving File: {output_file_name}")
+    if show_progress:
+        print(f"Saving: {output_file_name}")
     try:
         with open(output_file_name, "wb") as out_file:
             output_writer.write(out_file)
@@ -156,7 +174,7 @@ def save_page(page: PageObject, output_file_name: str) -> None:
         exit(1)
 
 
-def extract_region(page: PageObject, output_file_name: str, region: List[Tuple[float, float]]) -> None:
+def extract_region(page: PageObject, output_file_name: str, region: List[Tuple[float, float]], show_progress: bool) -> None:
     """
     Function to extract a region from a page.
     """
@@ -171,10 +189,10 @@ def extract_region(page: PageObject, output_file_name: str, region: List[Tuple[f
         print(f"Error Extracting Region from: {output_file_name}")
         exit(1)
 
-    save_page(page, output_file_name)
+    save_page(page, output_file_name, show_progress)
 
 
-def split_pdf(input_file_name: str, regions_to_split: List[List[Tuple[float, float]]], output_directory: str) -> str | int:
+def split_pdf(input_file_name: str, regions_to_split: List[List[Tuple[float, float]]], output_directory: str, show_progress: bool) -> str | int:
     """
     Function to open the given PDF file and then split into individual pages.
     """
@@ -193,7 +211,7 @@ def split_pdf(input_file_name: str, regions_to_split: List[List[Tuple[float, flo
             return "Error Creating Output Directory."
 
         print(
-            f'\n{count_pdf_pages} pages to be split into {len(regions_to_split)} regions.')
+            f'\nFound {count_pdf_pages} pages to be split into {len(regions_to_split)} regions.')
         try:
             file_name = get_file_name_from_path(input_file_name)
             region_count = 0
@@ -207,7 +225,8 @@ def split_pdf(input_file_name: str, regions_to_split: List[List[Tuple[float, flo
                     extract_region(
                         page,
                         f'{output_directory}/{file_name} - {region_count}.pdf',
-                        region)
+                        region,
+                        show_progress)
 
         except:
             return "An Error Occurred While Splitting Files."
@@ -215,23 +234,43 @@ def split_pdf(input_file_name: str, regions_to_split: List[List[Tuple[float, flo
     return 0
 
 
-def ghost_export(temp_directory: str, output_directory: str) -> None | str:
+def ghost_export(temp_directory: str, output_directory: str, skip_confirmation: bool, show_progress: bool) -> None | str:
     """
     Function to re-export the PDF files in the given temp directory to a 
     given output directory.
     """
 
-    if (clear_directory(output_directory) == False):
+    if (clear_directory(output_directory, skip_confirmation, show_progress) == False):
         return "Error Clearing Output Directory."
 
     files = glob(f'{temp_directory}/*.pdf')
     if (len(files) == 0):
         return "No PDF Files Found In {temp_directory} Directory."
 
+    print(f"\nExporting {len(files)} files with Ghostscript.")
+
     try:
         for file in files:
-            print(f"\nExporting File: {file}")
-            system(
-                f'gs -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile="{output_directory}/{get_file_name_from_path(file)}.pdf" "{file}"')
+            if show_progress:
+                print(
+                    f"Exporting: {output_directory}/{get_file_name_from_path(file)}.pdf")
+            if (name == 'nt'):
+                system(f'gswin64c \
+                    {"" if show_progress else "-q"} \
+                    -dSAFER \
+                    -dNOPAUSE \
+                    -dBATCH \
+                    -sDEVICE=pdfwrite \
+                    -sOutputFile="{output_directory}/{get_file_name_from_path(file)}.pdf" \
+                    "{file}"')
+            else:
+                system(f'gs \
+                    {"" if show_progress else "-q"} \
+                    -dSAFER \
+                    -dNOPAUSE \
+                    -dBATCH \
+                    -sDEVICE=pdfwrite \
+                    -sOutputFile="{output_directory}/{get_file_name_from_path(file)}.pdf" \
+                    "{file}"')
     except:
         return "An Error Occurred While Exporting Files."
