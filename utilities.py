@@ -7,7 +7,6 @@ from os import mkdir, path, remove, system, name
 from pathlib import Path
 from shutil import which
 from typing import List, Tuple
-from PyPDF2 import PdfReader
 from datetime import datetime
 from PyPDF2 import PdfWriter, PdfReader, PageObject
 

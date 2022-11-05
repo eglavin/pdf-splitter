@@ -1,25 +1,44 @@
-# Payslipper by eglavin
+# PDF Splitter
 
-Payslipper is a program used to breakout regions in a single PDF file into multiple PDF files.
+PDF Splitter is a script used to breakout defined regions of a PDF file into separate files.
 
 ## Prerequisites:
 
-> Please ensure ghostscript has been setup correctly on your system and the command `gs` or `gswin64c` can be ran from the Terminal / Powershell respectively.
+1. [Python 3+](https://www.python.org/downloads/)
+2. [Ghostscript](https://www.ghostscript.com/doc/current) 
+> Please ensure ghostscript has been setup correctly on your system and the command `gs` or `gswin64c` can be ran from a shell prompt shell.
 
-## Using Payslipper
+## Using PDF Splitter
 
+To use PDF Splitter `cd` into the directory with the `main.py` file and install dependencies using `pip3 install -r requirements.txt`.
 
-To use Payslipper `cd` into the directory with the main file and run it using the following command:
-
-```ps1
-python ./main.py
-```
+To run the script, start by placing the file to be split into the `./input` folder, then run using `python ./main.py`, once complete the final files will be saved to the `./output` folder.
 
 ### Extra command line arguments:
 
 `-s` Skip user confirmation
 
 `-p` Display ongoing progress 
+
+## Change Regions:
+
+To change the regions to be split update the `REGIONS_TO_SPLIT` constant in the `main.py` file.
+
+```py
+"""
+Each tuple is a pair of coordinates in this format:
+[
+  (lower_left_x, lower_left_y),
+  (upper_right_x, upper_right_y)
+]
+"""
+REGIONS_TO_SPLIT: List[List[Tuple[float, float]]] = [
+    [
+        (0, 420),
+        (575, 750)
+    ],
+]
+```
 
 
 ## Externally Used libraries:
